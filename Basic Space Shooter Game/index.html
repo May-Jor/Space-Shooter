@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <style>
+            body{
+                margin: 0;
+                padding: 0;
+                text-align: center;
+            }
+            canvas{
+                background: linear-gradient(#080c2d, #0f1654); 
+                margin: 0 auto; 
+                margin-top: 50px; 
+                border: 1px solid black;
+                cursor: none;
+            }
+        </style>
+    </head>
+    <body>
+        <audio id="BGM" autoplay loop>
+          <source src="zizibum.ogg" type="audio/ogg">
+        </audio>
+        <audio id="laser" loop>
+          <source src="laser.ogg" type="audio/ogg">
+        </audio>
+        <audio id="explosionNoise">
+          <source src="explosion.ogg" type="audio/ogg">
+        </audio>
+        <canvas id="canvas"></canvas>
+        <script>
+        
+            document.getElementById("BGM").volume=0.025;
+            
+            
+            var canvas = document.getElementById("canvas");
+            canvas.height = window.innerHeight - 100;
+            canvas.width = window.innerWidth - 100;
+            
+            var c = canvas.getContext("2d");
+            
+
+            //GLOBAL VARIABLES
+            var starAmount = 50;
+            var difficulty = 0;
+            var boulderCountToAdd = 1;
+            var score = 0;
+            var gameOver = false;
+            
+            //player's ship object
+            var ship = {
+                x: window.innerWidth - (window.innerWidth - 30),
+                y: window.innerHeight / 2,
+                laserX: this.x,
+                power: 1000,
+                drawPower: function(){
+                    c.fillStyle = "cyan";
+                    c.fillRect(15,canvas.height-43,230, 50);
+                    c.clearRect(25,canvas.height - 35, 210, 30);
+                    var grd = c.createLinearGradient(0,0,200,0);
+                    grd.addColorStop(0,"red");
+                    grd.addColorStop(1,"green");
+                    c.fillStyle = grd;
+                    c.fillRect(30, canvas.height - 30, this.power/5, 20);
+                },
+                laserW: 0,
+                laserDraw: function(){
+                    if(this.laserW <= 15){
+                        c.fillStyle = "Green";
+                        c.fillRect(this.x + 55, this.y+30 - this.laserW/2, canvas.width,this.laserW);
+                        if(this.power <=0){
+                            this.laserW = 0;
+                        }
+                        else{
+                            this.laserW++;
+                            this.power -= this.laserW/4;
+                        }
+                    }
+                    else{
+                        c.fillStyle = "Green";
+                        c.fillRect(this.x + 55, this.y+30 - this.laserW/2, canvas.width, this.laserW);
+                        if(this.power <= 0){
+                            this.laserW = 0;
+                            document.getElementById("laser").pause();
+                        }
+                        else{
+                            this.power -= this.laserW/2;
+                        }
+                        
+                    }
+                },
+                image: new Image(20,20),
+                draw: function(){
+                    this.image.src = "ship.png";
+                    //c.clearRect(0,0,canvas.width, canvas.height);
+                    c.drawImage(this.image, this.x, this.y, 70,70);
+                }
+            };
+            
+            //movement and fire event listeners
+            document.getElementById("canvas").addEventListener("mousemove", function(event){
+                ship.x = event.clientX - 80;
+                ship.y = event.clientY - 70;
+            });
+            document.getElementById("canvas").addEventListener("mousedown", function(event){
+                if(document.getElementById("laser").paused){
+                    document.getElementById("laser").play();
+                }
+                ship.laserW = 1;
+            });
+            document.getElementById("canvas").addEventListener("mouseup", function(event){
+                ship.laserW = 0;
+                document.getElementById("laser").pause();
+            });
+            
+            //array that contains stars for starfeild
+            var stars = [];
+            //create rest of starfeild handlers
+                function star(x,y,size,speed){
+                    this.x = x;
+                    this.y = y;
+                    this.size = size;
+                    this.speed = speed;
+                }
+                
+                for(var i = 0; i < starAmount; i++){
+                    var Nstar = new star(Math.floor(Math.random() * canvas.width), Math.floor(Math.random() * canvas.height), Math.floor(Math.random() * 3) + 1, Math.floor(Math.random() * 10) + 1);
+                    stars.push(Nstar);
+                }
+            for(var  i = 0; i < stars.length; i++){
+                   switch(stars[i].size){
+                        case 1:
+                            stars[i].speed = Math.floor(Math.random() * 15) + 10;
+                        break;
+                        case 2:
+                            stars[i].speed = Math.floor(Math.random() * 8) + 5;
+                        break;
+                        case 3:
+                            stars[i].speed = Math.floor(Math.random() * 3) + 1;
+                        break;
+                    }
+               } 
+            function moveStars(){
+               for(var  i = 0; i < stars.length; i++){
+                   stars[i].x -= stars[i].speed;
+                   
+                   if(stars[i].x < 0){
+                       stars[i].x = canvas.width + 20;
+                       stars[i].y = Math.floor(Math.random() * canvas.height);
+                   }
+               } 
+            }
+            
+            function drawStars(){
+                c.fillStyle = "white";
+                for(var i = 0; i < stars.length; i++){
+                    switch(stars[i].size){
+                        case 1:
+                            c.fillRect(stars[i].x, stars[i].y, 25, 6);
+                        break;
+                        case 2:
+                            c.fillRect(stars[i].x, stars[i].y, 20, 5);
+                        break;
+                        case 3:
+                            c.fillRect(stars[i].x, stars[i].y, 10, 3);
+                        break;
+                    }
+                }
+                //console.log(stars);
+            }
+            
+            
+            //create boulder object and create difficulty system
+            //var boulder = new Image();
+            var boulders = [];
+            //boulder object constructor
+            function boulder(x,y,size,speed){
+                    this.x = x;
+                    this.y = y;
+                    this.size = size;
+                    this.speed = speed;
+                    this.image = new Image(size, size);
+                    this.draw = function(){
+                        this.image.src = "boulder.png";
+                        c.drawImage(this.image, this.x, this.y, this.size/2,this.size/2);
+                    };
+            }
+            //create boulders based on difficulty
+            function addBoulder(num){
+                for(var i = 0; i < num; i++){
+                    var boulderSize = Math.floor(Math.random() * 5) + 1;
+                    var Nboulder = new boulder(canvas.width + 100, Math.floor(Math.random() * canvas.height - 100 - boulderSize), Math.floor(Math.random() * 1000) + 200, boulderSize);
+                    boulders.push(Nboulder);
+                }
+            }
+            //add initial boulders
+            addBoulder(5);
+            var bouldersHitByLaser = [];
+            function moveBoulders(){
+                for(var i = 0; i < boulders.length; i++){
+                    boulders[i].x -= boulders[i].speed;
+                    
+                    if(boulders[i].x+boulders[i].size < 0){
+                       boulders[i].x = canvas.width + boulders[i].size;
+                   }
+                }
+                if(bouldersHitByLaser.length > 0){
+                    bouldersHitByLaser.sort(function(a,b){return a.x-b.x});
+                    bouldersHitByLaser[0].size -= 10;
+                    bouldersHitByLaser[0].x += 5;
+                    bouldersHitByLaser[0].y += 1.5;
+                    score+= 2;
+
+                    bouldersHitByLaser = [];
+                }
+                else{
+
+                }
+            }
+            function drawBoulders(){
+                for(var i = 0; i < boulders.length; i++){
+                    laserHit(boulders[i]);
+                    if(boulders[i].size <= 100){
+                        boulders.splice(i, 1);
+                    }
+                    detectShipHit(boulders[i]);
+                    boulders[i].draw();
+                    //detectShipHit(boulders[i]);
+                    
+                }
+            }
+            
+            
+            //add laser hit to boulder
+            function laserHit(boulder){
+                if(boulder.x-10 > ship.x && ship.laserW > 0){
+                    if (ship.y+30 > boulder.y && ship.y+30-ship.laserW < boulder.y+boulder.size/3) {
+                        bouldersHitByLaser.push(boulder);
+                    }
+                }
+            }
+            
+            //ship COllide detection
+            function detectShipHit(boulder){
+                if (ship.x < boulder.x + boulder.size/2.4  && ship.x + 30  > boulder.x &&
+                		ship.y < boulder.y + boulder.size/2.4 && ship.y + 10 > boulder.y) {
+                        gameOver = true;
+                        document.getElementById("explosionNoise").play();
+                }
+            }
+            
+            var loop = setInterval(function(){
+                if(gameOver == true){
+                    //alert("gameOver");
+                    stopGame();
+                }
+                else{
+                    c.clearRect(0,0,canvas.width, canvas.height);
+                    drawStars();
+                    moveStars();
+                    if(ship.laserW > 0){
+                        ship.laserDraw();
+                    }
+                    if(ship.power < 1000){
+                        ship.power+=2;
+                    }
+                    ship.draw();
+                    if(difficulty % 3000 == 0){
+                        console.log("adding boulders");
+                        console.log(boulders);
+                        addBoulder(boulderCountToAdd);
+                        boulderCountToAdd++;
+                    }
+                    difficulty+=5;
+                    //console.log(difficulty);
+                    moveBoulders();
+                    drawBoulders();
+                    ship.drawPower();
+                    c.fillStyle = "White";
+                    c.font = "30px Arial";
+                    c.fillText("Score: " + score,canvas.width/2 - 30,50);
+                }
+                
+            }, 1000/60);
+            
+            function stopGame(){
+                clearInterval(loop);
+                c.clearRect(0,0,canvas.width,canvas.height);
+                c.fillStyle = "White";
+                 c.fillText("You Died!", canvas.width/2-70, canvas.height/2-100);
+                c.fillText("Final Score: " + score, canvas.width/2-100, canvas.height/2);
+            }
+        </script>
+    </body>
+</html>
